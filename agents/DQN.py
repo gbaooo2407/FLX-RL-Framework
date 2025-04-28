@@ -22,55 +22,15 @@ class DQNAgent:
         self.train_count = 0
         self.episode_count = 0
 
-    def act(self, state, valid_actions, env=None, eval_mode=False):
-        if not isinstance(state, np.ndarray) or state.shape != (self.state_size,):
-            state = np.array(state, dtype=np.float32).reshape(self.state_size) if np.isscalar(state) else state
-            print(f"Warning: State shape corrected to {state.shape}")
-
-        # Giảm epsilon khi trong chế độ đánh giá (eval_mode)
-        exploration_threshold = max(self.epsilon, 0.1 if eval_mode else 0.5)
-        if random.random() < exploration_threshold and env is not None:
-            # Heuristic: Choose action that minimizes distance to goal with 50% probability
-            if random.random() < 0.5:
-                neighbors = list(env.graph.neighbors(env.current_node))
-                goal_pos = np.array([env.graph.nodes[env.goal_node]['x'], env.graph.nodes[env.goal_node]['y']])
-                distances = [
-                    np.linalg.norm(np.array([env.graph.nodes[neighbors[i]]['x'], env.graph.nodes[neighbors[i]]['y']]) - goal_pos)
-                    for i in range(len(neighbors))
-                ]
-                return valid_actions[np.argmin(distances)] if distances else random.choice(valid_actions)
-            return random.choice(valid_actions)
-
-        with torch.no_grad():
-            state_tensor = torch.from_numpy(state).float().unsqueeze(0)
-            q_values = self.model(state_tensor)[0]
-            masked_q_values = torch.full((self.action_size,), float('-inf'))
-            for action in valid_actions:
-                masked_q_values[action] = q_values[action]
-            chosen_action = torch.argmax(masked_q_values).item()
-            return chosen_action
-
     # def act(self, state, valid_actions, env=None, eval_mode=False):
-    #     # Kiểm tra và chuyển đổi state nếu cần
     #     if not isinstance(state, np.ndarray) or state.shape != (self.state_size,):
     #         state = np.array(state, dtype=np.float32).reshape(self.state_size) if np.isscalar(state) else state
     #         print(f"Warning: State shape corrected to {state.shape}")
 
-    #     # Nếu đang trong chế độ đánh giá, chọn hành động tối ưu (greedy)
-    #     if eval_mode:
-    #         # Tính toán giá trị Q cho tất cả các hành động hợp lệ
-    #         with torch.no_grad():
-    #             state_tensor = torch.from_numpy(state).float().unsqueeze(0)
-    #             q_values = self.model(state_tensor)[0]
-    #             masked_q_values = torch.full((self.action_size,), float('-inf'))
-    #             for action in valid_actions:
-    #                 masked_q_values[action] = q_values[action]
-    #             return torch.argmax(masked_q_values).item()
-
-    #     # Nếu không trong chế độ đánh giá, sử dụng epsilon-greedy
-    #     exploration_threshold = max(self.epsilon, 0.5 if self.episode_count < 10 else 0.0)
+    #     # Giảm epsilon khi trong chế độ đánh giá (eval_mode)
+    #     exploration_threshold = max(self.epsilon, 0.1 if eval_mode else 0.5)
     #     if random.random() < exploration_threshold and env is not None:
-    #         # Heuristic: Chọn hành động giảm thiểu khoảng cách tới mục tiêu với xác suất 50%
+    #         # Heuristic: Choose action that minimizes distance to goal with 50% probability
     #         if random.random() < 0.5:
     #             neighbors = list(env.graph.neighbors(env.current_node))
     #             goal_pos = np.array([env.graph.nodes[env.goal_node]['x'], env.graph.nodes[env.goal_node]['y']])
@@ -81,13 +41,113 @@ class DQNAgent:
     #             return valid_actions[np.argmin(distances)] if distances else random.choice(valid_actions)
     #         return random.choice(valid_actions)
 
-        # Chọn hành động có giá trị Q cao nhất (greedy action)
+    #     with torch.no_grad():
+    #         state_tensor = torch.from_numpy(state).float().unsqueeze(0)
+    #         q_values = self.model(state_tensor)[0]
+    #         masked_q_values = torch.full((self.action_size,), float('-inf'))
+    #         for action in valid_actions:
+    #             masked_q_values[action] = q_values[action]
+    #         chosen_action = torch.argmax(masked_q_values).item()
+    #         return chosen_action
+
+    # # def act(self, state, valid_actions, env=None, eval_mode=False):
+    # #     # Kiểm tra và chuyển đổi state nếu cần
+    # #     if not isinstance(state, np.ndarray) or state.shape != (self.state_size,):
+    # #         state = np.array(state, dtype=np.float32).reshape(self.state_size) if np.isscalar(state) else state
+    # #         print(f"Warning: State shape corrected to {state.shape}")
+
+    # #     # Nếu đang trong chế độ đánh giá, chọn hành động tối ưu (greedy)
+    # #     if eval_mode:
+    # #         # Tính toán giá trị Q cho tất cả các hành động hợp lệ
+    # #         with torch.no_grad():
+    # #             state_tensor = torch.from_numpy(state).float().unsqueeze(0)
+    # #             q_values = self.model(state_tensor)[0]
+    # #             masked_q_values = torch.full((self.action_size,), float('-inf'))
+    # #             for action in valid_actions:
+    # #                 masked_q_values[action] = q_values[action]
+    # #             return torch.argmax(masked_q_values).item()
+
+    # #     # Nếu không trong chế độ đánh giá, sử dụng epsilon-greedy
+    # #     exploration_threshold = max(self.epsilon, 0.5 if self.episode_count < 10 else 0.0)
+    # #     if random.random() < exploration_threshold and env is not None:
+    # #         # Heuristic: Chọn hành động giảm thiểu khoảng cách tới mục tiêu với xác suất 50%
+    # #         if random.random() < 0.5:
+    # #             neighbors = list(env.graph.neighbors(env.current_node))
+    # #             goal_pos = np.array([env.graph.nodes[env.goal_node]['x'], env.graph.nodes[env.goal_node]['y']])
+    # #             distances = [
+    # #                 np.linalg.norm(np.array([env.graph.nodes[neighbors[i]]['x'], env.graph.nodes[neighbors[i]]['y']]) - goal_pos)
+    # #                 for i in range(len(neighbors))
+    # #             ]
+    # #             return valid_actions[np.argmin(distances)] if distances else random.choice(valid_actions)
+    # #         return random.choice(valid_actions)
+
+    #     # Chọn hành động có giá trị Q cao nhất (greedy action)
+    #     with torch.no_grad():
+    #         state_tensor = torch.from_numpy(state).float().unsqueeze(0)
+    #         q_values = self.model(state_tensor)[0]
+    #         masked_q_values = torch.full((self.action_size,), float('-inf'))
+    #         for action in valid_actions:
+    #             masked_q_values[action] = q_values[action]
+    #         return torch.argmax(masked_q_values).item()
+
+    def act(self, state, valid_actions, env=None, eval_mode=False):
+        if not isinstance(state, np.ndarray) or state.shape != (self.state_size,):
+            state = np.array(state, dtype=np.float32).reshape(self.state_size)
+        
+        # Tính exploration threshold tùy thuộc vào trạng thái đánh giá
+        exploration_threshold = 0.05 if eval_mode else self.epsilon
+        
+        # Trong chế độ đánh giá, có 50% cơ hội sử dụng heuristic
+        if (random.random() < exploration_threshold or eval_mode and random.random() < 0.5) and env is not None:
+            # Heuristic: luôn ưu tiên đi gần đến đích
+            neighbors = list(env.graph.neighbors(env.current_node))
+            if not neighbors:
+                return random.choice(valid_actions) if valid_actions else 0
+                
+            goal_pos = np.array([env.graph.nodes[env.goal_node]['x'], env.graph.nodes[env.goal_node]['y']])
+            current_pos = np.array([env.graph.nodes[env.current_node]['x'], env.graph.nodes[env.current_node]['y']])
+            
+            # Tính khoảng cách từ mỗi điểm lân cận đến đích
+            neighbors_dist = []
+            for i, neighbor in enumerate(neighbors):
+                if i >= len(valid_actions):
+                    break
+                    
+                neighbor_pos = np.array([
+                    env.graph.nodes[neighbor]['x'], 
+                    env.graph.nodes[neighbor]['y']
+                ])
+                
+                # Tính hướng di chuyển 
+                movement_vector = neighbor_pos - current_pos
+                goal_vector = goal_pos - current_pos
+                
+                # Tính góc giữa vector di chuyển và vector hướng đến đích
+                cos_angle = np.dot(movement_vector, goal_vector) / (
+                    np.linalg.norm(movement_vector) * np.linalg.norm(goal_vector) + 1e-10
+                )
+                
+                # Kết hợp khoảng cách đến đích và góc (góc nhỏ được ưu tiên)
+                dist_to_goal = np.linalg.norm(neighbor_pos - goal_pos)
+                angle_penalty = (1 - cos_angle) * 10  # Phạt nếu góc lớn
+                
+                heuristic_value = dist_to_goal + angle_penalty
+                neighbors_dist.append(heuristic_value)
+                
+            action_idx = np.argmin(neighbors_dist)
+            return valid_actions[action_idx] if action_idx < len(valid_actions) else random.choice(valid_actions)
+                
+        # Sử dụng mô hình DQN cho exploitation
         with torch.no_grad():
             state_tensor = torch.from_numpy(state).float().unsqueeze(0)
             q_values = self.model(state_tensor)[0]
+            
+            # Chỉ xem xét các hành động hợp lệ
             masked_q_values = torch.full((self.action_size,), float('-inf'))
             for action in valid_actions:
-                masked_q_values[action] = q_values[action]
+                if action < len(q_values):
+                    masked_q_values[action] = q_values[action]
+                    
             return torch.argmax(masked_q_values).item()
 
 
